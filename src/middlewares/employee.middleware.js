@@ -1,5 +1,5 @@
 const Employee = require('../models/employees.model');
-const { AppError } = require('../utils/appError');
+const  AppError  = require('../utils/appError');
 
 exports.attachEmployeeToUser = async (req, res, next) => {
   try {

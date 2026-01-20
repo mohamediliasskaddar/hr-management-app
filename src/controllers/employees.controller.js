@@ -1,5 +1,10 @@
 const catchAsync = require('../utils/catchAsync');
 const EmployeesService = require('../services/employees.service');
+const mongoose = require('mongoose');
+const  AppError  = require('../utils/appError');
+const Employee = require('../models/employees.model');
+
+
 
 exports.createEmployee = catchAsync(async (req, res) => {
   const employee = await EmployeesService.createEmployee(req.body, req.user.id);
@@ -19,7 +24,11 @@ exports.getAllEmployees = catchAsync(async (req, res) => {
   });
 });
 
-exports.getEmployee = catchAsync(async (req, res) => {
+exports.getEmployee = catchAsync(async (req, res, next) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return next(new AppError('Invalid employee ID', 400));
+  }
+
   const employee = await EmployeesService.getEmployeeById(req.params.id);
 
   res.status(200).json({

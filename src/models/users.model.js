@@ -42,6 +42,6 @@ const usersSchema = new mongoose.Schema({
 });
 
 // Index pour recherche rapide sur email
-usersSchema.index({ email: 1 });
+// usersSchema.index({ email: 1 });
 
 module.exports = mongoose.model('User', usersSchema);

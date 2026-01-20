@@ -74,7 +74,7 @@ const employeesSchema = new mongoose.Schema({
   timestamps: true
 });
 
-employeesSchema.index({ matricule: 1 });
-employeesSchema.index({ cin: 1 });
+// employeesSchema.index({ matricule: 1 });
+// employeesSchema.index({ cin: 1 });
 
 module.exports = mongoose.model('Employee', employeesSchema);

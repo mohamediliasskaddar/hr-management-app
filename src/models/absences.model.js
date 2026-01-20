@@ -21,3 +21,4 @@ absencesSchema.index({ employee_id: 1, absence_date: 1 });
 absencesSchema.index({ justification_status: 1 });
 
 module.exports = mongoose.model('Absence', absencesSchema);
+
