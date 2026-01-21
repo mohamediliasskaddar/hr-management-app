@@ -7,7 +7,6 @@ const { restrictTo } = require('../middlewares/auth.middleware');
 
 // All routes require authentication
 router.use(protect);
-router.use(attachEmployeeToUser);
 
 /**
  * @swagger
@@ -35,6 +34,10 @@ router.use(attachEmployeeToUser);
  *               is_justified:
  *                 type: boolean
  *                 default: false
+ *              absence_type:
+ *                type: string
+ *                enum: [MALADIE, PERSONNEL, NON_JUSTIFIE, AUTRE]
+ *                default: PERSONNEL
  *     responses:
  *       201:
  *         description: Absence declared successfully
@@ -75,10 +78,7 @@ router.post(
  *       200:
  *         description: Justification submitted successfully
  */
-router.post(
-  '/:id/justification',
-  absencesController.submitJustification
-);
+router.post('/:id/justification', attachEmployeeToUser, absencesController.submitJustification);
 
 /**
  * @swagger
@@ -116,10 +116,48 @@ router.patch(
   restrictTo('MANAGER', 'ADMIN_RH'),
   absencesController.processJustification
 );
-
-module.exports = router;
-
 // Lister les absences (selon rôle)
 router.get('/', absencesController.getAbsences);
+
+// src/routes/absences.routes.js
+
+/**
+ * @swagger
+ * /api/absences:
+ *   get:
+ *     summary: Get absences list (role-based)
+ *     tags: [Absences]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED]
+ *       - in: query
+ *         name: from
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: to
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Absences retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get(
+  '/',
+  attachEmployeeToUser,
+  absencesController.getAbsences
+);
+
 
 module.exports = router;

@@ -10,16 +10,26 @@ router.use(protect);
  * @swagger
  * /api/announcements:
  *   get:
- *     summary: Get all announcements
+ *     summary: Get all announcements (filtered by role and scope)
  *     tags: [Announcements]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: status
+ *         name: is_active
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active announcements
+ *       - in: query
+ *         name: priority
  *         schema:
  *           type: string
- *           enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *           enum: [LOW, NORMAL, HIGH, URGENT]
+ *       - in: query
+ *         name: target_scope
+ *         schema:
+ *           type: string
+ *           enum: [ALL_EMPLOYEES, SPECIFIC_TEAM]
  *       - in: query
  *         name: search
  *         schema:
@@ -39,6 +49,7 @@ router.use(protect);
  *       200:
  *         description: List of announcements
  */
+
 router.get('/', announcementsController.getAllAnnouncements);
 
 /**
@@ -55,28 +66,41 @@ router.get('/', announcementsController.getAllAnnouncements);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [title, content]
+ *             required:
+ *               - title
+ *               - content
+ *               - target_scope
  *             properties:
  *               title:
  *                 type: string
  *                 example: Company Holiday Notice
  *               content:
  *                 type: string
- *                 example: The company will be closed on...
- *               status:
+ *                 example: The company will be closed on Friday.
+ *               target_scope:
  *                 type: string
- *                 enum: [DRAFT, PUBLISHED, ARCHIVED]
- *                 default: DRAFT
- *               published_date:
+ *                 enum: [ALL_EMPLOYEES, SPECIFIC_TEAM]
+ *               target_team_manager_id:
+ *                 type: string
+ *                 description: Required if target_scope is SPECIFIC_TEAM
+ *               priority:
+ *                 type: string
+ *                 enum: [LOW, NORMAL, HIGH, URGENT]
+ *                 default: NORMAL
+ *               is_active:
+ *                 type: boolean
+ *                 default: true
+ *               published_at:
  *                 type: string
  *                 format: date-time
- *               expiry_date:
+ *               expires_at:
  *                 type: string
  *                 format: date-time
  *     responses:
  *       201:
  *         description: Announcement created successfully
  */
+
 router.post(
   '/',
   restrictTo('ADMIN_RH', 'MANAGER'),
@@ -102,7 +126,6 @@ router.post(
  *         description: Announcement details
  */
 router.get('/:id', announcementsController.getAnnouncement);
-
 /**
  * @swagger
  * /api/announcements/{id}:
@@ -128,13 +151,24 @@ router.get('/:id', announcementsController.getAnnouncement);
  *                 type: string
  *               content:
  *                 type: string
- *               status:
+ *               target_scope:
  *                 type: string
- *                 enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *                 enum: [ALL_EMPLOYEES, SPECIFIC_TEAM]
+ *               target_team_manager_id:
+ *                 type: string
+ *               priority:
+ *                 type: string
+ *                 enum: [LOW, NORMAL, HIGH, URGENT]
+ *               is_active:
+ *                 type: boolean
+ *               expires_at:
+ *                 type: string
+ *                 format: date-time
  *     responses:
  *       200:
  *         description: Announcement updated successfully
  */
+
 router.patch(
   '/:id',
   restrictTo('ADMIN_RH', 'MANAGER'),

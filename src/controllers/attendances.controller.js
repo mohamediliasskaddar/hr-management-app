@@ -14,6 +14,24 @@ exports.recordAttendance = catchAsync(async (req, res) => {
   });
 });
 
+exports.checkIn = catchAsync(async (req, res) => {
+  const attendance = await AttendancesService.checkIn(req.employee._id, req.body);
+
+  res.status(201).json({
+    status: 'success',
+    data: { attendance }
+  });
+});
+
+exports.checkOut = catchAsync(async (req, res) => {
+  const attendance = await AttendancesService.checkOut(req.employee._id, req.body);
+
+  res.status(200).json({
+    status: 'success',
+    data: { attendance }
+  });
+});
+
 exports.getMyAttendances = catchAsync(async (req, res) => {
   const result = await AttendancesService.getEmployeeAttendances(
     req.employee._id,

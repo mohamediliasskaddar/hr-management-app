@@ -1,7 +1,7 @@
 const Absence = require('../models/absences.model');
 const Employee = require('../models/employees.model');
 const NotificationService = require('./notifications.service');
-const { AppError } = require('../utils/appError');
+const  AppError  = require('../utils/appError');
 
 class AbsencesService {
   /**
@@ -13,10 +13,16 @@ class AbsencesService {
 
     const { absence_date, absence_type, reason } = data;
 
-    // Vérifier si absence déjà déclarée ce jour-là
+    // Normaliser la date au début du jour et créer une borne supérieure
+    const absenceDateObj = new Date(absence_date);
+    absenceDateObj.setHours(0, 0, 0, 0);
+    const nextDay = new Date(absenceDateObj);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    // Vérifier si absence déjà déclarée ce jour-là (recherche par intervalle)
     const existing = await Absence.findOne({
       employee_id: employeeId,
-      absence_date: new Date(absence_date).setHours(0, 0, 0, 0)
+      absence_date: { $gte: absenceDateObj, $lt: nextDay }
     });
 
     if (existing) {
@@ -37,7 +43,7 @@ class AbsencesService {
       type: 'SYSTEM',
       recipient_id: employee.user_id,
       title: 'Absence déclarée',
-      message: `Une absence de type ${absence_type} a été déclarée pour le ${absence_date.toLocaleDateString()}. Veuillez fournir une justification si nécessaire.`,
+      message: `Une absence de type ${absence_type} a été déclarée pour le ${absence.absence_date.toLocaleDateString()}. Veuillez fournir une justification si nécessaire.`,
       reference_type: 'Absence',
       reference_id: absence._id
     });

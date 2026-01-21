@@ -1,7 +1,7 @@
 const Announcement = require('../models/announcements.model');
 const Employee = require('../models/employees.model');
 const NotificationService = require('./notifications.service');
-const { AppError } = require('../utils/appError');
+const  AppError  = require('../utils/appError');
 
 class AnnouncementsService {
   /**

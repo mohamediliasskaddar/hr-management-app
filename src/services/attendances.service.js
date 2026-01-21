@@ -41,8 +41,82 @@ class AttendancesService {
       if (notes) attendance.notes = notes;
 
       // Recalcul du statut et total hours
-      await attendance.calculateStatusAndHours();
+      await this.calculateStatusAndHours(attendance._id);
     }
+
+    await attendance.save();
+    return attendance;
+  }
+
+  /**
+   * Séparer check-in
+   */
+  async checkIn(employeeId, { check_in_time, notes }) {
+    const employee = await Employee.findById(employeeId);
+    if (!employee) throw new AppError("Employé non trouvé", 404);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let attendance = await Attendance.findOne({
+      employee_id: employeeId,
+      attendance_date: today
+    });
+
+    if (!attendance) {
+      if (!check_in_time) {
+        // accept current time if not provided
+        check_in_time = new Date();
+      }
+
+      attendance = new Attendance({
+        employee_id: employeeId,
+        attendance_date: today,
+        check_in_time: new Date(check_in_time),
+        notes
+      });
+    } else {
+      // Update existing record if check_in_time missing
+      if (!attendance.check_in_time) {
+        attendance.check_in_time = check_in_time ? new Date(check_in_time) : new Date();
+      }
+      if (notes) attendance.notes = notes;
+    }
+
+    await attendance.save();
+    return attendance;
+  }
+
+  /**
+   * Séparer check-out
+   */
+  async checkOut(employeeId, { check_out_time, notes }) {
+    const employee = await Employee.findById(employeeId);
+    if (!employee) throw new AppError("Employé non trouvé", 404);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let attendance = await Attendance.findOne({
+      employee_id: employeeId,
+      attendance_date: today
+    });
+
+    if (!attendance) {
+      // No check-in yet; create a record with null check_in_time and check_out_time
+      attendance = new Attendance({
+        employee_id: employeeId,
+        attendance_date: today,
+        check_out_time: check_out_time ? new Date(check_out_time) : new Date(),
+        notes
+      });
+    } else {
+      attendance.check_out_time = check_out_time ? new Date(check_out_time) : new Date();
+      if (notes) attendance.notes = notes;
+    }
+
+    // Recalculate status and hours
+    await this.calculateStatusAndHours(attendance._id);
 
     await attendance.save();
     return attendance;

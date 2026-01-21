@@ -10,9 +10,9 @@ router.use(attachEmployeeToUser);
 
 /**
  * @swagger
- * /api/attendances/record:
+ * /api/attendances/check-in:
  *   post:
- *     summary: Record attendance (check-in/check-out)
+ *     summary: Check in (start of the work day)
  *     tags: [Attendances]
  *     security:
  *       - bearerAuth: []
@@ -28,17 +28,45 @@ router.use(attachEmployeeToUser);
  *                 type: string
  *                 format: date-time
  *                 example: 2026-01-20T08:00:00Z
+ *               notes:
+ *                 type: string
+ *                 example: Arrived late due to traffic
+ *     responses:
+ *       201:
+ *         description: Check-in recorded successfully
+ */
+router.post('/check-in', attendancesController.checkIn);
+
+/**
+ * @swagger
+ * /api/attendances/check-out:
+ *   post:
+ *     summary: Check out (end of the work day)
+ *     tags: [Attendances]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [check_out_time]
+ *             properties:
  *               check_out_time:
  *                 type: string
  *                 format: date-time
  *                 example: 2026-01-20T17:00:00Z
  *               notes:
  *                 type: string
- *                 example: Late arrival due to traffic
+ *                 example: Left early for doctor's appointment
  *     responses:
  *       201:
- *         description: Attendance recorded successfully
+ *         description: Check-out recorded successfully
  */
+router.post('/check-out', attendancesController.checkOut);
+
+// Backwards-compatible combined endpoint
 router.post('/record', attendancesController.recordAttendance);
 
 /**

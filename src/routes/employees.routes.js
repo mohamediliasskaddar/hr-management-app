@@ -170,7 +170,8 @@ router.get('/', restrictTo('ADMIN_RH', 'MANAGER'), employeesController.getAllEmp
  *       201:
  *         description: Employee created successfully
  */
-router.post('/', restrictTo('ADMIN_RH'), employeesController.createEmployee);
+// router.post('/', restrictTo('ADMIN_RH'), employeesController.createEmployee);
+router.post('/', employeesController.createEmployee);
 
 /**
  * @swagger
