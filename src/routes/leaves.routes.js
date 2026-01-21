@@ -51,6 +51,36 @@ router.post('/', leavesController.createLeaveRequest);
 
 /**
  * @swagger
+ * /api/leaves/all:
+ *   get:
+ *     summary: Get all leave requests (Admin/Manager only)
+ *     tags: [Leaves]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [EN_ATTENTE, APPROUVE, REFUSE]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of all leave requests
+ */
+router.get('/all', restrictTo('MANAGER', 'ADMIN_RH'), leavesController.getAllLeaveRequests);
+
+/**
+ * @swagger
  * /api/leaves/my-requests:
  *   get:
  *     summary: Get current employee's leave requests

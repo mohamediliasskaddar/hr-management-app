@@ -176,7 +176,53 @@ class LeavesService {
     };
   }
 
-  async getLeaveRequestById(id, user) {
+  /**
+   * Get all leave requests (for admin/manager view)
+   */
+  async getAllLeaveRequests({ 
+    status, 
+    startDate, 
+    endDate, 
+    page = 1, 
+    limit = 20,
+    currentUser,
+    currentEmployeeId
+  }) {
+    const query = {};
+
+    // Filtrage selon rôle
+    if (currentUser.role === 'MANAGER') {
+      // Manager voit les demandes de ses employés
+      const managedEmployees = await Employee.find({ manager_id: currentEmployeeId }).select('_id');
+      query.employee_id = { $in: managedEmployees.map(e => e._id) };
+    }
+    // ADMIN_RH voit tout → pas de restriction
+
+    if (status) query.status = status;
+    if (startDate) query.start_date = { $gte: new Date(startDate) };
+    if (endDate) {
+      if (query.start_date) query.start_date.$lte = new Date(endDate);
+      else query.start_date = { $lte: new Date(endDate) };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const requests = await LeaveRequest.find(query)
+      .populate('employee_id', 'first_name last_name matricule')
+      .populate('processed_by', 'email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await LeaveRequest.countDocuments(query);
+
+    return {
+      requests,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    };
+  }
+
+  async getLeaveRequestById(id, user, employee) {
     const leave = await LeaveRequest.findById(id)
       .populate('employee_id', 'first_name last_name matricule')
       .populate('processed_by', 'email');
@@ -184,7 +230,7 @@ class LeavesService {
     if (!leave) throw new AppError('Demande non trouvée', 404);
 
     // Vérification accès
-    if (user.role === 'EMPLOYEE' && leave.employee_id.toString() !== user.employeeId) {
+    if (user.role === 'EMPLOYEE' && leave.employee_id._id.toString() !== employee._id.toString()) {
       throw new AppError('Accès non autorisé', 403);
     }
 
