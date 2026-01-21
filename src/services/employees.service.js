@@ -2,7 +2,8 @@ const Employee = require('../models/employees.model');
 const User = require('../models/users.model');
 const Position = require('../models/positions.model');
 const AuditLogService = require('./auditLogs.service');
-const  AppError  = require('../utils/appError');
+const  AppError  = require('../utils/appError'); 
+// import {AppError} from '../utils/appError';
 
 class EmployeesService {
   // Créer un employé + lier à un compte User (ou créer le user en même temps)

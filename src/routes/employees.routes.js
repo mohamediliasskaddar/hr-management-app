@@ -5,6 +5,7 @@ const employeesController = require('../controllers/employees.controller');
 // const   restrictTo  = require('../middlewares/auth.middleware');
 const { protect, restrictTo } = require('../middlewares/auth.middleware');
 
+
 // All routes require authentication
 router.use(protect);
 
@@ -108,7 +109,7 @@ router.get('/', restrictTo('ADMIN_RH', 'MANAGER'), employeesController.getAllEmp
  * @swagger
  * /api/employees:
  *   post:
- *     summary: Create a new employee (Admin only)
+ *     summary: Create a new employee (Admin RH only)
  *     tags: [Employees]
  *     security:
  *       - bearerAuth: []
@@ -118,7 +119,7 @@ router.get('/', restrictTo('ADMIN_RH', 'MANAGER'), employeesController.getAllEmp
  *         application/json:
  *           schema:
  *             type: object
- *             required: [user_id, first_name, last_name, matricule, hire_date]
+ *             required: [user_id, first_name, last_name, matricule, hire_date, manager_id]
  *             properties:
  *               user_id:
  *                 type: string
@@ -149,13 +150,14 @@ router.get('/', restrictTo('ADMIN_RH', 'MANAGER'), employeesController.getAllEmp
  *                 example: 2023-01-15
  *               address:
  *                 type: string
+ *               manager_id:
+ *                 type: string
+ *                 description: ID of the manager to assign to this employee (required)
  *               status:
  *                 type: string
  *                 enum: [ACTIF, SUSPENDU, QUITTE]
  *                 default: ACTIF
  *               position_id:
- *                 type: string
- *               manager_id:
  *                 type: string
  *               annual_leave_balance:
  *                 type: number
@@ -170,8 +172,7 @@ router.get('/', restrictTo('ADMIN_RH', 'MANAGER'), employeesController.getAllEmp
  *       201:
  *         description: Employee created successfully
  */
-// router.post('/', restrictTo('ADMIN_RH'), employeesController.createEmployee);
-router.post('/', employeesController.createEmployee);
+router.post('/', restrictTo('ADMIN_RH'), employeesController.createEmployee);
 
 /**
  * @swagger
