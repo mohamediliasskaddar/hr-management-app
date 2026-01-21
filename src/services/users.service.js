@@ -1,4 +1,5 @@
 const User = require('../models/users.model');
+const AuditLogService = require('./auditLogs.service');
 const { AppError } = require('../utils/appError'); // suppose que tu as ce helper
 
 class UsersService {
@@ -54,9 +55,10 @@ class UsersService {
    * Met à jour un utilisateur (email, role, statut actif/inactif, etc.)
    * Attention : ne permet pas de changer le mot de passe ici
    */
-  async updateUser(id, data) {
+  async updateUser(id, data, currentUserId) {
     const allowedFields = ['email', 'role', 'is_active'];
     const updateData = {};
+    const oldData = {};
 
     for (const field of allowedFields) {
       if (data[field] !== undefined) {
@@ -68,17 +70,33 @@ class UsersService {
       throw new AppError('Aucun champ valide à mettre à jour', 400);
     }
 
-    const user = await User.findByIdAndUpdate(
+    const user = await User.findById(id);
+    if (!user) throw new AppError('Utilisateur non trouvé', 404);
+
+    // Capturer les anciennes valeurs
+    allowedFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        oldData[field] = user[field];
+      }
+    });
+
+    const updated = await User.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
     ).select('-password -password_reset_token -password_reset_expiry');
 
-    if (!user) {
-      throw new AppError('Utilisateur non trouvé', 404);
-    }
+    // Enregistrer l'audit
+    await AuditLogService.log({
+      user_id: currentUserId,
+      action: `L'utilisateur a modifié le compte ${user.email}`,
+      entity_type: 'User',
+      entity_id: user._id,
+      old_values: oldData,
+      new_values: updateData
+    });
 
-    return user;
+    return updated;
   }
 
   /**

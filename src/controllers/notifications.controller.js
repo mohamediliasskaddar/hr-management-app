@@ -1,19 +1,45 @@
 const Notification = require('../models/notifications.model');
 const catchAsync = require('../utils/catchAsync');
+const NotificationService = require('../services/notifications.service');
 const AppError = require('../utils/appError');
 
 /**
- * Get all notifications for the current user
+ * Get all notifications for the current user with pagination
  */
 exports.getMyNotifications = catchAsync(async (req, res, next) => {
-  const notifications = await Notification.find({ recipient_id: req.user.id })
-    .sort({ createdAt: -1 });
+  const { page = 1, limit = 20, isRead } = req.query;
+
+  const result = await NotificationService.getNotificationsForUser(
+    req.user._id || req.user.id,
+    {
+      page: Number(page),
+      limit: Number(limit),
+      isRead: isRead === 'true' ? true : isRead === 'false' ? false : undefined
+    }
+  );
 
   res.status(200).json({
     status: 'success',
-    results: notifications.length,
-    data: {
-      notifications
+    data: result
+  });
+});
+
+/**
+ * Get unread notifications
+ */
+exports.getUnreadNotifications = catchAsync(async (req, res, next) => {
+  const { limit = 20 } = req.query;
+
+  const notifications = await NotificationService.getUnreadForUser(
+    req.user._id || req.user.id,
+    Number(limit)
+  );
+
+  res.status(200).json({
+    status: 'success',
+    data: { 
+      notifications, 
+      count: notifications.length 
     }
   });
 });
@@ -29,7 +55,8 @@ exports.getNotificationById = catchAsync(async (req, res, next) => {
   }
 
   // Vérifier que la notification appartient à l'utilisateur connecté
-  if (notification.recipient_id.toString() !== req.user.id) {
+  const userId = req.user._id || req.user.id;
+  if (notification.recipient_id.toString() !== userId.toString()) {
     return next(new AppError('You do not have permission to access this notification', 403));
   }
 
@@ -45,19 +72,12 @@ exports.getNotificationById = catchAsync(async (req, res, next) => {
  * Mark a notification as read
  */
 exports.markAsRead = catchAsync(async (req, res, next) => {
-  const notification = await Notification.findById(req.params.id);
+  const userId = req.user._id || req.user.id;
+  const notification = await NotificationService.markAsRead(req.params.id, userId);
 
   if (!notification) {
     return next(new AppError('Notification not found', 404));
   }
-
-  // Vérifier que la notification appartient à l'utilisateur connecté
-  if (notification.recipient_id.toString() !== req.user.id) {
-    return next(new AppError('You do not have permission to update this notification', 403));
-  }
-
-  notification.is_read = true;
-  await notification.save();
 
   res.status(200).json({
     status: 'success',
@@ -71,14 +91,13 @@ exports.markAsRead = catchAsync(async (req, res, next) => {
  * Mark all notifications as read for the current user
  */
 exports.markAllAsRead = catchAsync(async (req, res, next) => {
-  await Notification.updateMany(
-    { recipient_id: req.user.id },
-    { is_read: true }
-  );
+  const userId = req.user._id || req.user.id;
+  const result = await NotificationService.markAllAsRead(userId);
 
   res.status(200).json({
     status: 'success',
-    message: 'All notifications marked as read'
+    message: `${result.modifiedCount} notification(s) marked as read`,
+    data: { modifiedCount: result.modifiedCount }
   });
 });
 
@@ -86,16 +105,19 @@ exports.markAllAsRead = catchAsync(async (req, res, next) => {
  * Delete a notification
  */
 exports.deleteNotification = catchAsync(async (req, res, next) => {
-  const notification = await Notification.findByIdAndDelete(req.params.id);
+  const userId = req.user._id || req.user.id;
+  const notification = await Notification.findById(req.params.id);
 
   if (!notification) {
     return next(new AppError('Notification not found', 404));
   }
 
   // Vérifier que la notification appartient à l'utilisateur connecté
-  if (notification.recipient_id.toString() !== req.user.id) {
+  if (notification.recipient_id.toString() !== userId.toString()) {
     return next(new AppError('You do not have permission to delete this notification', 403));
   }
+
+  await Notification.findByIdAndDelete(req.params.id);
 
   res.status(204).json({
     status: 'success',

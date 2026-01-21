@@ -1,5 +1,7 @@
 const catchAsync = require('../utils/catchAsync');
 const AttendancesService = require('../services/attendances.service');
+const Employee = require('../models/employees.model');
+const { AppError } = require('../utils/appError');
 
 exports.recordAttendance = catchAsync(async (req, res) => {
   // On suppose que req.employee existe (via middleware)
@@ -60,5 +62,32 @@ exports.getDailySummary = catchAsync(async (req, res) => {
   res.status(200).json({
     status: 'success',
     data: { summary }
+  });
+});
+
+/**
+ * Get attendance list for all employees (Admin/Manager only)
+ * Manager sees only their team, Admin RH sees all
+ */
+exports.getAllAttendances = catchAsync(async (req, res) => {
+  const { employeeId, status, startDate, endDate, page = 1, limit = 20 } = req.query;
+
+  // Get employee profile for manager filtering
+  const currentEmployee = await Employee.findOne({ user_id: req.user._id });
+  
+  const result = await AttendancesService.getAllAttendances({
+    employeeId,
+    status,
+    startDate,
+    endDate,
+    page: Number(page),
+    limit: Number(limit),
+    managerId: currentEmployee?._id, // pass manager ID if manager
+    userRole: req.user.role
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: result
   });
 });

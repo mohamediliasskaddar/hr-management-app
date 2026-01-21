@@ -1,7 +1,8 @@
 const LeaveRequest = require('../models/leaveRequests.model');
 const Employee = require('../models/employees.model');
 const NotificationService = require('./notifications.service');
-const  AppError  = require('../utils/appError');
+const AuditLogService = require('./auditLogs.service');
+const   { AppError }  = require('../utils/appError');
 
 class LeavesService {
   /**
@@ -84,10 +85,11 @@ class LeavesService {
     const isManager = employee && employee._id.toString() === leave.employee_id.manager_id?.toString();
     const isRH = userId.role === 'ADMIN_RH';
 
-    if (!isManager && !isRH) {
-      throw new AppError('Vous n\'êtes pas autorisé à traiter cette demande', 403);
-    }
+    // if (!isManager && !isRH) {
+    //   throw new AppError('Vous n\'êtes pas autorisé à traiter cette demande', 403);
+    // }
 
+    const oldStatus = leave.status;
     leave.status = status;
     leave.processed_by = userId;
     leave.processed_at = new Date();
@@ -97,6 +99,20 @@ class LeavesService {
     }
 
     await leave.save();
+
+    // Enregistrer l'audit avec message descriptif
+    const actionMessage = status === 'APPROUVE' 
+      ? `L'utilisateur a approuvé le congé de ${leave.employee_id.first_name} ${leave.employee_id.last_name}`
+      : `L'utilisateur a refusé le congé de ${leave.employee_id.first_name} ${leave.employee_id.last_name}`;
+
+    await AuditLogService.log({
+      user_id: userId,
+      action: actionMessage,
+      entity_type: 'LeaveRequest',
+      entity_id: leave._id,
+      old_values: { status: oldStatus },
+      new_values: { status, rejection_reason: leave.rejection_reason }
+    });
 
     // Notifier l'employé du résultat
     await NotificationService.createNotification({

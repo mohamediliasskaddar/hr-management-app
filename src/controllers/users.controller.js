@@ -28,7 +28,7 @@ exports.getUser = catchAsync(async (req, res) => {
 });
 
 exports.updateUser = catchAsync(async (req, res) => {
-  const user = await UsersService.updateUser(req.params.id, req.body);
+  const user = await UsersService.updateUser(req.params.id, req.body, req.user._id);
 
   res.status(200).json({
     status: 'success',

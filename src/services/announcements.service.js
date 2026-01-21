@@ -1,6 +1,7 @@
 const Announcement = require('../models/announcements.model');
 const Employee = require('../models/employees.model');
 const NotificationService = require('./notifications.service');
+const AuditLogService = require('./auditLogs.service');
 const  AppError  = require('../utils/appError');
 
 class AnnouncementsService {
@@ -81,12 +82,24 @@ class AnnouncementsService {
     }
   }
 
-  async getAllAnnouncements({ activeOnly = true, priority, page = 1, limit = 20 }) {
+  async getAllAnnouncements({
+    activeOnly = true,
+    priority,
+    page = 1,
+    limit = 20
+  }) {
     const query = {};
 
-    if (activeOnly) {
+    // Handle activeOnly parameter - it comes as string from query params
+    const isActiveOnly = activeOnly === true || activeOnly === 'true';
+
+    if (isActiveOnly) {
       query.is_active = true;
+      // Fix: Use proper date filtering - announcement is valid if:
+      // - no expiration date exists, OR
+      // - expiration date is in the future
       query.$or = [
+        { expires_at: null },
         { expires_at: { $exists: false } },
         { expires_at: { $gt: new Date() } }
       ];
@@ -96,14 +109,19 @@ class AnnouncementsService {
 
     const skip = (page - 1) * limit;
 
+    console.log('Query:', JSON.stringify(query, null, 2)); // Debug log
+
     const announcements = await Announcement.find(query)
       .populate('author_id', 'email')
       .populate('target_team_manager_id', 'first_name last_name')
       .sort({ published_at: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Add lean() for better performance
 
     const total = await Announcement.countDocuments(query);
+
+    console.log(`Found ${announcements.length} announcements`); // Debug log
 
     return {
       announcements,
@@ -115,6 +133,7 @@ class AnnouncementsService {
       }
     };
   }
+
 
   async getAnnouncementById(id) {
     const announcement = await Announcement.findById(id)
@@ -138,9 +157,13 @@ class AnnouncementsService {
 
     const allowedFields = ['title', 'content', 'priority', 'expires_at', 'is_active'];
     const updates = {};
+    const oldData = {};
 
     allowedFields.forEach(field => {
-      if (data[field] !== undefined) updates[field] = data[field];
+      if (data[field] !== undefined) {
+        oldData[field] = announcement[field];
+        updates[field] = data[field];
+      }
     });
 
     if (Object.keys(updates).length === 0) {
@@ -149,6 +172,16 @@ class AnnouncementsService {
 
     Object.assign(announcement, updates);
     await announcement.save();
+
+    // Enregistrer l'audit avec message descriptif
+    await AuditLogService.log({
+      user_id: currentUserId,
+      action: `L'utilisateur a modifié l'annonce "${announcement.title}"`,
+      entity_type: 'Announcement',
+      entity_id: announcement._id,
+      old_values: oldData,
+      new_values: updates
+    });
 
     return announcement;
   }
@@ -163,6 +196,20 @@ class AnnouncementsService {
     }
 
     await Announcement.findByIdAndDelete(id);
+
+    // Enregistrer l'audit pour suppression
+    await AuditLogService.log({
+      user_id: currentUserId,
+      action: `L'utilisateur a supprimé l'annonce "${announcement.title}"`,
+      entity_type: 'Announcement',
+      entity_id: announcement._id,
+      old_values: { 
+        title: announcement.title,
+        content: announcement.content,
+        priority: announcement.priority
+      },
+      new_values: { status: 'DELETED' }
+    });
 
     return { message: 'Annonce supprimée avec succès' };
   }

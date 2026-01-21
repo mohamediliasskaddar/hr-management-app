@@ -3,7 +3,7 @@ const LeavesService = require('../services/leaves.service');
 
 exports.createLeaveRequest = catchAsync(async (req, res) => {
   const leave = await LeavesService.createLeaveRequest(
-    req.employee._id, 
+    req.user._id, //added
     req.body
   );
 
@@ -28,7 +28,7 @@ exports.processLeaveRequest = catchAsync(async (req, res) => {
 
 exports.getMyLeaveRequests = catchAsync(async (req, res) => {
   const result = await LeavesService.getLeaveRequests({
-    employeeId: req.employee._id,
+    employeeId: req.user._id,//added
     ...req.query,
     user: req.user
   });

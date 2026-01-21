@@ -1,17 +1,16 @@
 const mongoose = require('mongoose');
 
 const notificationTypeEnum = [
-  'ACCOUNT_CREATED',
-  'ACCOUNT_ACTIVATED',
-  'ACCOUNT_DEACTIVATED',
-  'PASSWORD_RESET',
-  'LEAVE_REQUEST',
-  'LEAVE_APPROVED',
-  'LEAVE_REJECTED',
-  'JUSTIFICATION_SUBMITTED',
-  'JUSTIFICATION_APPROVED',
-  'JUSTIFICATION_REJECTED',
-  'ANNOUNCEMENT',
+  'ACCOUNT_CREATED',//pour la gestion des comptes utilisateurs
+  'ACCOUNT_ACTIVATED',//pour la gestion des comptes utilisateurs
+  'ACCOUNT_DEACTIVATED',//pour la gestion des comptes utilisateurs
+  'LEAVE_REQUEST',//pour les demandes de congé
+  'LEAVE_APPROVED',//pour les demandes de congé
+  'LEAVE_REJECTED',//pour les demandes de congé
+  'JUSTIFICATION_SUBMITTED',//pour les justifications d'absence
+  'JUSTIFICATION_APPROVED',//pour les justifications d'absence
+  'JUSTIFICATION_REJECTED',//pour les justifications d'absence
+  'ANNOUNCEMENT',//pour les annonces générales
   'SYSTEM'
 ];
 

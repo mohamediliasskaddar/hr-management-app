@@ -2,7 +2,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/users.model');
+const NotificationService = require('./notifications.service');
+const AuditLogService = require('./auditLogs.service');
 const { AppError } = require('../utils/appError'); // À créer ou utiliser ton propre système d'erreur
+const Employee = require('../models/employees.model');
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-me';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -25,40 +29,68 @@ class AuthService {
       is_first_login: true
     });
 
+    // Enregistrer l'audit
+    await AuditLogService.log({
+      user_id: created_by,
+      action: `L'utilisateur a créé un nouveau compte: ${user.email}`,
+      entity_type: 'User',
+      entity_id: user._id,
+      old_values: {},
+      new_values: { email: user.email, role: user.role }
+    });
+
+    // Envoyer notification automatique de création de compte
+    await NotificationService.createNotification({
+      type: 'ACCOUNT_CREATED',
+      recipient_id: user._id,
+      title: 'Compte créé avec succès',
+      message: `Bienvenue! Votre compte a été créé. Veuillez vous connecter avec vos identifiants.`,
+      reference_type: 'User',
+      reference_id: user._id
+    });
+
     return user;
   }
 
   async login(email, password) {
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
-    if (!user) {
-      throw new AppError('Email ou mot de passe incorrect', 401);
-    }
-
-    if (!user.is_active) {
-      throw new AppError('Compte désactivé. Contactez l\'administrateur', 403);
-    }
-
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
-    if (!isPasswordCorrect) {
-      throw new AppError('Email ou mot de passe incorrect', 401);
-    }
-
-    // Mise à jour dernière connexion
-    user.last_login = new Date();
-    await user.save({ validateBeforeSave: false });
-
-    const token = this.generateToken(user._id);
-
-    return {
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        is_first_login: user.is_first_login
-      }
-    };
+  const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+  if (!user) {
+    throw new AppError('Email ou mot de passe incorrect', 401);
   }
+
+  if (!user.is_active) {
+    throw new AppError('Compte désactivé. Contactez l\'administrateur', 403);
+  }
+
+  const isPasswordCorrect = await bcrypt.compare(password, user.password);
+  if (!isPasswordCorrect) {
+    throw new AppError('Email ou mot de passe incorrect', 401);
+  }
+
+  user.last_login = new Date();
+  await user.save({ validateBeforeSave: false });
+
+  const token = this.generateToken(user._id);
+
+  let employeeId = null;
+
+  if (user.role === 'EMPLOYEE') {
+    const employee = await Employee.findOne({ user_id: user._id }).select('_id');
+    employeeId = employee ? employee._id : null;
+  }
+
+  return {
+    token,
+    user: {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      is_first_login: user.is_first_login,
+      employee_id: employeeId
+    }
+  };
+}
+
 
   generateToken(userId) {
     return jwt.sign({ id: userId }, JWT_SECRET, {
@@ -82,8 +114,7 @@ class AuthService {
     user.password_reset_expiry = Date.now() + RESET_TOKEN_EXPIRY;
     await user.save({ validateBeforeSave: false });
 
-    // TODO: Envoyer l'email avec le token
-    // Exemple d'URL : `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
+    
     console.log(`Reset token pour ${email} : ${resetToken}`);
 
     return { message: 'Lien de réinitialisation envoyé (simulation console)' };

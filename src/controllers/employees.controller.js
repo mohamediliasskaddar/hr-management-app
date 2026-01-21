@@ -1,7 +1,7 @@
 const catchAsync = require('../utils/catchAsync');
 const EmployeesService = require('../services/employees.service');
 const mongoose = require('mongoose');
-const  AppError  = require('../utils/appError');
+const  { AppError }  = require('../utils/appError');
 const Employee = require('../models/employees.model');
 
 
@@ -38,7 +38,7 @@ exports.getEmployee = catchAsync(async (req, res, next) => {
 });
 
 exports.updateEmployee = catchAsync(async (req, res) => {
-  const employee = await EmployeesService.updateEmployee(req.params.id, req.body);
+  const employee = await EmployeesService.updateEmployee(req.params.id, req.body, req.user._id);
 
   res.status(200).json({
     status: 'success',

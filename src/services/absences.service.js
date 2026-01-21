@@ -1,6 +1,7 @@
 const Absence = require('../models/absences.model');
 const Employee = require('../models/employees.model');
 const NotificationService = require('./notifications.service');
+const AuditLogService = require('./auditLogs.service');
 const  AppError  = require('../utils/appError');
 
 class AbsencesService {
@@ -94,13 +95,14 @@ class AbsencesService {
    * Traiter une justification (valider/refuser)
    */
   async processJustification(absenceId, processorUserId, { status, rejection_reason }) {
-    const absence = await Absence.findById(absenceId);
+    const absence = await Absence.findById(absenceId).populate('employee_id');
     if (!absence) throw new AppError('Absence non trouvée', 404);
 
     if (absence.justification_status !== 'EN_ATTENTE') {
       throw new AppError('Cette justification a déjà été traitée', 400);
     }
 
+    const oldStatus = absence.justification_status;
     absence.justification_status = status;
     absence.justification_processed_by = processorUserId;
     absence.justification_processed_at = new Date();
@@ -111,7 +113,21 @@ class AbsencesService {
 
     await absence.save();
 
-    // Notifier l'employé
+    // Enregistrer l'audit
+    const auditAction = status === 'VALIDE' 
+      ? `L'utilisateur a validé la justification d'absence de ${absence.employee_id.first_name} ${absence.employee_id.last_name}`
+      : `L'utilisateur a refusé la justification d'absence de ${absence.employee_id.first_name} ${absence.employee_id.last_name}`;
+
+    await AuditLogService.log({
+      user_id: processorUserId,
+      action: auditAction,
+      entity_type: 'Absence',
+      entity_id: absence._id,
+      old_values: { justification_status: oldStatus },
+      new_values: { justification_status: status, rejection_reason: absence.justification_rejection_reason }
+    });
+
+    // Notifier l'employé avec notification automatique
     await NotificationService.createNotification({
       type: status === 'VALIDE' ? 'JUSTIFICATION_APPROVED' : 'JUSTIFICATION_REJECTED',
       recipient_id: absence.employee_id.user_id,
@@ -163,6 +179,73 @@ class AbsencesService {
     return {
       absences,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    };
+  }
+
+  /**
+   * Get all absences with justifications for Admin/Manager management view
+   */
+  async getAllAbsencesForManagement({
+    employeeId,
+    status,
+    dateStart,
+    dateEnd,
+    page = 1,
+    limit = 20,
+    managerId,
+    userRole
+  }) {
+    const query = {};
+
+    // Filter by role
+    if (userRole === 'MANAGER') {
+      // Manager sees only their team
+      const teamMembers = await Employee.find({ manager_id: managerId }).select('_id');
+      query.employee_id = { $in: teamMembers.map(e => e._id) };
+    }
+    // ADMIN_RH sees all → no employee filter
+
+    // Additional filters
+    if (employeeId) query.employee_id = employeeId;
+    if (status) query.justification_status = status;
+
+    if (dateStart) {
+      query.absence_date = { $gte: new Date(dateStart) };
+    }
+    if (dateEnd) {
+      if (query.absence_date) {
+        query.absence_date.$lte = new Date(dateEnd);
+      } else {
+        query.absence_date = { $lte: new Date(dateEnd) };
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const absences = await Absence.find(query)
+      .populate('employee_id', 'first_name last_name matricule email status')
+      .populate('employee_id.manager_id', 'first_name last_name')
+      .populate('declared_by', 'email')
+      .populate('justification_processed_by', 'email')
+      .select(
+        'employee_id absence_date absence_type reason justification_status ' +
+        'justification_file_url justification_submitted_at justification_processed_at ' +
+        'justification_rejection_reason declared_by'
+      )
+      .sort({ absence_date: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Absence.countDocuments(query);
+
+    return {
+      absences,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
     };
   }
 }

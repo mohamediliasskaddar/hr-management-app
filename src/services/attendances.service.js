@@ -216,6 +216,65 @@ class AttendancesService {
 
     return attendances;
   }
-}
 
+  /**
+   * Get attendance list for all employees (Admin/Manager filtering)
+   */
+  async getAllAttendances({
+    employeeId,
+    status,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 20,
+    managerId,
+    userRole
+  }) {
+    const query = {};
+
+    // Filter by role
+    if (userRole === 'MANAGER') {
+      // Manager sees only their team
+      const teamMembers = await Employee.find({ manager_id: managerId }).select('_id');
+      query.employee_id = { $in: teamMembers.map(e => e._id) };
+    }
+    // ADMIN_RH sees all → no employee filter
+
+    // Additional filters
+    if (employeeId) query.employee_id = employeeId;
+    if (status) query.status = status;
+
+    if (startDate) {
+      query.attendance_date = { $gte: new Date(startDate) };
+    }
+    if (endDate) {
+      if (query.attendance_date) {
+        query.attendance_date.$lte = new Date(endDate);
+      } else {
+        query.attendance_date = { $lte: new Date(endDate) };
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const attendances = await Attendance.find(query)
+      .populate('employee_id', 'first_name last_name matricule email')
+      .populate('employee_id.manager_id', 'first_name last_name')
+      .sort({ attendance_date: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Attendance.countDocuments(query);
+
+    return {
+      attendances,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    };
+  }
+}
 module.exports = new AttendancesService();

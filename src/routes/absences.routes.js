@@ -4,10 +4,10 @@ const absencesController = require('../controllers/absences.controller');
 const { protect } = require('../middlewares/auth.middleware');
 const { attachEmployeeToUser } = require('../middlewares/employee.middleware');
 const { restrictTo } = require('../middlewares/auth.middleware');
+const  AppError  = require('../utils/appError');
 
 // All routes require authentication
 router.use(protect);
-
 /**
  * @swagger
  * /api/absences:
@@ -34,7 +34,7 @@ router.use(protect);
  *               is_justified:
  *                 type: boolean
  *                 default: false
- *              absence_type:
+ *               absence_type:
  *                type: string
  *                enum: [MALADIE, PERSONNEL, NON_JUSTIFIE, AUTRE]
  *                default: PERSONNEL
@@ -116,10 +116,54 @@ router.patch(
   restrictTo('MANAGER', 'ADMIN_RH'),
   absencesController.processJustification
 );
-// Lister les absences (selon rôle)
-router.get('/', absencesController.getAbsences);
 
-// src/routes/absences.routes.js
+/**
+ * @swagger
+ * /api/absences/management/all:
+ *   get:
+ *     summary: Get all absences with justifications (Admin/Manager only)
+ *     tags: [Absences]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: employeeId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [NON_FOURNI, EN_ATTENTE, VALIDE, REFUSE]
+ *       - in: query
+ *         name: dateStart
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: dateEnd
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of absences with justifications
+ */
+router.get(
+  '/management/all',
+  restrictTo('ADMIN_RH', 'MANAGER'),
+  absencesController.getAllAbsences
+);
 
 /**
  * @swagger
@@ -134,30 +178,25 @@ router.get('/', absencesController.getAbsences);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [PENDING, APPROVED, REJECTED]
+ *           enum: [NON_FOURNI, EN_ATTENTE, VALIDE, REFUSE]
  *       - in: query
- *         name: from
+ *         name: dateStart
  *         schema:
  *           type: string
  *           format: date
  *       - in: query
- *         name: to
+ *         name: dateEnd
  *         schema:
  *           type: string
  *           format: date
  *     responses:
  *       200:
  *         description: Absences retrieved successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
  */
 router.get(
   '/',
   attachEmployeeToUser,
   absencesController.getAbsences
 );
-
 
 module.exports = router;

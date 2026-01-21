@@ -10,30 +10,71 @@ router.use(protect);
  * @swagger
  * /api/notifications:
  *   get:
- *     summary: Get all notifications for current user
+ *     summary: Get all notifications for current user with pagination
  *     tags: [Notifications]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 20
+ *       - in: query
+ *         name: isRead
+ *         schema:
+ *           type: boolean
+ *         description: Filter by read status
  *     responses:
  *       200:
- *         description: List of notifications
+ *         description: List of notifications with pagination
  */
 router.get('/', notificationsController.getMyNotifications);
 
 /**
  * @swagger
+ * /api/notifications/unread:
+ *   get:
+ *     summary: Get unread notifications only
+ *     tags: [Notifications]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of unread notifications
+ */
+router.get('/unread/list', notificationsController.getUnreadNotifications);
+
+/**
+ * @swagger
  * /api/notifications/{id}:
  *   get:
- *     summary: Get a notification by ID
+ *     summary: Get notification by ID
  *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
+ *         required: true
  *         schema:
  *           type: string
+ *         description: Notification ID
  *     responses:
  *       200:
  *         description: Notification details
+ *       404:
+ *         description: Notification not found
  */
 router.get('/:id', notificationsController.getNotificationById);
+
 
 /**
  * @swagger

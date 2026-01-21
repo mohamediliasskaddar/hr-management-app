@@ -1,6 +1,7 @@
 const Employee = require('../models/employees.model');
 const User = require('../models/users.model');
 const Position = require('../models/positions.model');
+const AuditLogService = require('./auditLogs.service');
 const  AppError  = require('../utils/appError');
 
 class EmployeesService {
@@ -120,7 +121,7 @@ class EmployeesService {
     return employee;
   }
 
-  async updateEmployee(id, data) {
+  async updateEmployee(id, data, currentUserId) {
     const allowedFields = [
       'first_name', 'last_name', 'phone', 'address', 'date_of_birth',
       'position_id', 'manager_id', 'status', 'emergency_contact_name',
@@ -128,15 +129,24 @@ class EmployeesService {
     ];
 
     const updates = {};
+    const oldData = {};
+
+    const employee = await Employee.findById(id);
+    if (!employee) throw new AppError('Employé non trouvé', 404);
+
+    // Capturer anciennes valeurs et préparer les mises à jour
     for (const field of allowedFields) {
-      if (data[field] !== undefined) updates[field] = data[field];
+      if (data[field] !== undefined) {
+        oldData[field] = employee[field];
+        updates[field] = data[field];
+      }
     }
 
     if (Object.keys(updates).length === 0) {
       throw new AppError('Aucun champ à mettre à jour', 400);
     }
 
-    const employee = await Employee.findByIdAndUpdate(
+    const updated = await Employee.findByIdAndUpdate(
       id,
       updates,
       { new: true, runValidators: true }
@@ -145,9 +155,29 @@ class EmployeesService {
       .populate('position_id', 'title department')
       .populate('manager_id', 'first_name last_name');
 
-    if (!employee) throw new AppError('Employé non trouvé', 404);
+    if (!updated) throw new AppError('Employé non trouvé', 404);
 
-    return employee;
+    // Enregistrer l'audit avec message descriptif
+    const employeeDisplayName = `${employee.first_name} ${employee.last_name}`;
+    let auditMessage = `L'utilisateur a modifié l'employé ${employeeDisplayName}`;
+
+    // Message spécifique si position a changé
+    if (updates.position_id) {
+      const oldPosition = oldData.position_id ? await Position.findById(oldData.position_id) : null;
+      const newPosition = await Position.findById(updates.position_id);
+      auditMessage = `L'utilisateur a lié ${employeeDisplayName} à la position "${newPosition?.title || 'N/A'}"`;
+    }
+
+    await AuditLogService.log({
+      user_id: currentUserId,
+      action: auditMessage,
+      entity_type: 'Employee',
+      entity_id: employee._id,
+      old_values: oldData,
+      new_values: updates
+    });
+
+    return updated;
   }
 
   async deleteEmployee(id) {

@@ -71,6 +71,54 @@ router.post('/record', attendancesController.recordAttendance);
 
 /**
  * @swagger
+ * /api/attendances:
+ *   get:
+ *     summary: Get all employees' attendance (Admin/Manager only)
+ *     tags: [Attendances]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: employeeId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ABSENT, INCOMPLET, COMPLET]
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of all attendances
+ */
+router.get(
+  '/',
+  restrictTo('ADMIN_RH', 'MANAGER'),
+  attendancesController.getAllAttendances
+);
+
+/**
+ * @swagger
  * /api/attendances/my-history:
  *   get:
  *     summary: Get current employee's attendance history
